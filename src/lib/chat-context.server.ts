@@ -86,7 +86,7 @@ export async function loadTurnContext(
   });
 
   // Keep the tail of the transcript; older events live in the summary.
-  const window: GwMessageLike[] = allMessages.slice(-30);
+  const window: StoredMessage[] = allMessages.slice(-30);
   const messages: GwMessage[] = window.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content,
