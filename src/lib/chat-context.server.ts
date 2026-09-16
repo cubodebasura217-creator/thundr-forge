@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
-import { buildInstructions, matchLore, parseSettings, type GwMessageLike } from "@/lib/prompt-types";
+import { buildInstructions, matchLore, parseSettings } from "@/lib/prompt";
 import type { GwMessage } from "@/lib/ai.server";
+
+type StoredMessage = { id: string; role: string; content: string; is_pinned: boolean };
 
 /** Loads everything the model needs for one chat turn. */
 export async function loadTurnContext(
