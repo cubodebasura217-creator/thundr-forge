@@ -33,7 +33,7 @@ export async function openResponsesStream(opts: {
       "Lovable-API-Key": apiKey(),
       "X-Lovable-AIG-SDK": "fetch",
     },
-    signal: opts.signal,
+    ...(opts.signal ? { signal: opts.signal } : {}),
     body: JSON.stringify({
       model: CHAT_MODEL,
       instructions: opts.instructions,

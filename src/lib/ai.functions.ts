@@ -103,14 +103,15 @@ export const draftCharacter = createServerFn({ method: "POST" })
       });
       const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
       const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+      const traits = parsed["traits"];
       return {
-        name: String(parsed.name ?? ""),
-        tagline: String(parsed.tagline ?? ""),
-        description: String(parsed.description ?? ""),
-        greeting: String(parsed.greeting ?? ""),
-        traits: Array.isArray(parsed.traits) ? parsed.traits.map(String).slice(0, 8) : [],
-        system_prompt: String(parsed.system_prompt ?? ""),
-        example_dialogue: String(parsed.example_dialogue ?? ""),
+        name: String(parsed["name"] ?? ""),
+        tagline: String(parsed["tagline"] ?? ""),
+        description: String(parsed["description"] ?? ""),
+        greeting: String(parsed["greeting"] ?? ""),
+        traits: Array.isArray(traits) ? traits.map(String).slice(0, 8) : [],
+        system_prompt: String(parsed["system_prompt"] ?? ""),
+        example_dialogue: String(parsed["example_dialogue"] ?? ""),
       };
     } catch (error) {
       throw toMessage(error);
