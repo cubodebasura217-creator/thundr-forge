@@ -61,7 +61,8 @@ const ShimmerComponent = ({
           "--spread": `${dynamicSpread}px`,
           backgroundImage:
             "var(--bg), linear-gradient(var(--color-muted-foreground), var(--color-muted-foreground))",
-        } as CSSProperties as MotionProps["style"]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as CSSProperties as any
       }
       transition={{
         duration,
