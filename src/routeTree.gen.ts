@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CharactersRouteImport } from './routes/characters'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as PersonasRouteImport } from './routes/personas'
 import { Route as WorldsRouteImport } from './routes/worlds'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -30,6 +31,11 @@ const AuthRoute = AuthRouteImport.update({
 const CharactersRoute = CharactersRouteImport.update({
   id: '/characters',
   path: '/characters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PersonasRoute = PersonasRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/characters': typeof CharactersRoute
+  '/discover': typeof DiscoverRoute
   '/personas': typeof PersonasRoute
   '/worlds': typeof WorldsRoute
   '/api/chat': typeof ApiChatRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/characters': typeof CharactersRoute
+  '/discover': typeof DiscoverRoute
   '/personas': typeof PersonasRoute
   '/worlds': typeof WorldsRoute
   '/api/chat': typeof ApiChatRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/characters': typeof CharactersRoute
+  '/discover': typeof DiscoverRoute
   '/personas': typeof PersonasRoute
   '/worlds': typeof WorldsRoute
   '/api/chat': typeof ApiChatRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/characters'
+    | '/discover'
     | '/personas'
     | '/worlds'
     | '/api/chat'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/characters'
+    | '/discover'
     | '/personas'
     | '/worlds'
     | '/api/chat'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/characters'
+    | '/discover'
     | '/personas'
     | '/worlds'
     | '/api/chat'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CharactersRoute: typeof CharactersRoute
+  DiscoverRoute: typeof DiscoverRoute
   PersonasRoute: typeof PersonasRoute
   WorldsRoute: typeof WorldsRoute
   ApiChatRoute: typeof ApiChatRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/characters'
       fullPath: '/characters'
       preLoaderRoute: typeof CharactersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/personas': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CharactersRoute: CharactersRoute,
+  DiscoverRoute: DiscoverRoute,
   PersonasRoute: PersonasRoute,
   WorldsRoute: WorldsRoute,
   ApiChatRoute: ApiChatRoute,
