@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
+  Flame,
   Image as ImageIcon,
   Pencil,
   Pin,
@@ -13,11 +14,15 @@ import {
   Settings2,
   Sparkle,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { ImageUploadButton } from "@/components/ImageUploadButton";
+import { RoleplayText } from "@/components/RoleplayText";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,6 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { generateImage, summarizeChat } from "@/lib/ai.functions";
+import { describeAiError } from "@/lib/ai-errors";
 import { uploadBase64Image, useSignedUrl } from "@/lib/media";
 import { DEFAULT_SETTINGS, parseSettings, type ChatSettings } from "@/lib/prompt";
 import { cn } from "@/lib/utils";
@@ -87,6 +93,12 @@ function ChatPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [scenePrompt, setScenePrompt] = useState<string | null>(null);
+  const [selectedScene, setSelectedScene] = useState<{ path: string; prompt: string } | null>(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const touchStart = useRef<{ id: string; x: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const chatQuery = useQuery({
@@ -94,7 +106,7 @@ function ChatPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chats")
-        .select("*, characters(id, name, avatar_url, greeting), personas(id, name)")
+        .select("*, characters(id, name, avatar_url, greeting), personas(id, name, description, avatar_url)")
         .eq("id", chatId)
         .maybeSingle();
       if (error) throw error;
@@ -128,15 +140,28 @@ function ChatPage() {
     },
   });
 
+  const personasQuery = useQuery({
+    queryKey: ["personas", "chat", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("personas").select("id, name, description, avatar_url").order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const chat = chatQuery.data;
   const messages = messagesQuery.data ?? [];
   const settings: ChatSettings = chat ? parseSettings(chat.settings) : DEFAULT_SETTINGS;
   const characterName = chat?.characters?.name ?? "Character";
   const avatarPath = chat?.characters?.avatar_url ?? null;
+  const backgroundUrl = useSignedUrl(chat?.background_path);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, streaming]);
+
+  useEffect(() => setSummaryDraft(chat?.summary ?? ""), [chat?.summary]);
 
   const refreshMessages = () =>
     queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
@@ -199,6 +224,7 @@ function ChatPage() {
   const send = useMutation({
     mutationFn: async (content: string) => {
       if (!user) throw new Error("Not signed in");
+      setReplyError(null);
       setBusy(true);
       const { error } = await supabase
         .from("messages")
@@ -211,7 +237,7 @@ function ChatPage() {
       await refreshMessages();
       await maybeSummarize(messages.length + 2);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => setReplyError(describeAiError(error)),
     onSettled: () => {
       setBusy(false);
       setStreaming(null);
@@ -221,6 +247,7 @@ function ChatPage() {
   const regenerate = useMutation({
     mutationFn: async (messageId: string) => {
       if (!user) throw new Error("Not signed in");
+      setReplyError(null);
       setBusy(true);
       const target = messages.find((m) => m.id === messageId);
       const text = await streamReply([messageId]);
@@ -236,7 +263,7 @@ function ChatPage() {
       if (updateError) throw updateError;
       await refreshMessages();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => setReplyError(describeAiError(error)),
     onSettled: () => {
       setBusy(false);
       setStreaming(null);
@@ -306,18 +333,31 @@ function ChatPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const updateChat = useMutation({
+    mutationFn: async (patch: { spicy?: boolean; persona_id?: string | null; background_path?: string | null; summary?: string }) => {
+      const { error } = await supabase.from("chats").update(patch).eq("id", chatId);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const summarizeNow = useMutation({
-    mutationFn: async () => summarizeChat({ data: { chatId } }),
+    mutationFn: async () => {
+      setSummaryError(null);
+      return summarizeChat({ data: { chatId } });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       toast.success("Story summary updated");
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => setSummaryError(describeAiError(error)),
   });
 
   const makeScene = useMutation({
     mutationFn: async (prompt: string) => {
       if (!user) throw new Error("Not signed in");
+      setImageError(null);
       const { base64 } = await generateImage({ data: { prompt, kind: "scene" } });
       const path = await uploadBase64Image(user.id, base64, "scenes");
       const { error } = await supabase
@@ -331,7 +371,7 @@ function ChatPage() {
       setShowMemory(true);
       toast.success("Scene card added");
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => setImageError(describeAiError(error)),
   });
 
   const pinned = messages.filter((m) => m.is_pinned);
@@ -359,15 +399,22 @@ function ChatPage() {
 
   return (
     <AppShell wide>
-      <div className="mx-auto flex h-[calc(100vh-4rem)] w-full max-w-4xl flex-col">
+      <div className="relative mx-auto flex h-[calc(100vh-4rem)] w-full max-w-4xl flex-col overflow-hidden">
+        {backgroundUrl ? (
+          <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${backgroundUrl})` }} />
+        ) : null}
+        {backgroundUrl ? <div className="pointer-events-none absolute inset-0 z-0 bg-background/65" /> : null}
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3">
           <CharacterAvatar path={avatarPath} name={characterName} />
           <div className="min-w-0 flex-1">
             <h1 className="font-display truncate text-lg font-semibold">{characterName}</h1>
-            <p className="truncate text-xs text-muted-foreground">
-              {chat.personas?.name ? `You are ${chat.personas.name}` : "No persona selected"}
-            </p>
+            <Select value={chat.persona_id ?? "none"} onValueChange={(value) => updateChat.mutate({ persona_id: value === "none" ? null : value })}>
+              <SelectTrigger className="mt-0.5 h-7 w-fit min-w-36 border-0 bg-transparent px-0 text-xs text-muted-foreground shadow-none"><SelectValue placeholder="Choose persona" /></SelectTrigger>
+              <SelectContent><SelectItem value="none">No persona</SelectItem>{personasQuery.data?.map((persona) => <SelectItem key={persona.id} value={persona.id}>You are {persona.name}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
+          <Button variant={chat.spicy ? "default" : "ghost"} size="icon" onClick={() => updateChat.mutate({ spicy: !chat.spicy })} aria-label={chat.spicy ? "Disable spicy mode" : "Enable spicy mode"}><Flame className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setShowMemory(true)} aria-label="Story memory">
             <ScrollText className="h-4 w-4" />
           </Button>
@@ -414,6 +461,16 @@ function ChatPage() {
                 <div className="flex max-w-[85%] items-end gap-2">
                   {!isUser ? <CharacterAvatar path={avatarPath} name={characterName} small /> : null}
                   <div
+                    onTouchStart={(event) => { touchStart.current = { id: message.id, x: event.touches[0]?.clientX ?? 0 }; }}
+                    onTouchEnd={(event) => {
+                      if (isUser || touchStart.current?.id !== message.id) return;
+                      const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStart.current.x;
+                      touchStart.current = null;
+                      if (delta < -60) {
+                        if (position >= variants.length) regenerate.mutate(message.id);
+                        else swipe.mutate({ message, dir: 1 });
+                      } else if (delta > 60 && variants.length > 1) swipe.mutate({ message, dir: -1 });
+                    }}
                     className={cn(
                       "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
                       isUser
@@ -444,7 +501,7 @@ function ChatPage() {
                         </div>
                       </div>
                     ) : (
-                      message.content
+                      <RoleplayText>{message.content}</RoleplayText>
                     )}
                   </div>
                 </div>
@@ -519,7 +576,7 @@ function ChatPage() {
             <div className="flex max-w-[85%] items-end gap-2">
               <CharacterAvatar path={avatarPath} name={characterName} small />
               <div className="glow-ring rounded-2xl rounded-bl-sm border border-primary/25 bg-card/80 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap">
-                {streaming || <span className="text-muted-foreground">{characterName} is writing…</span>}
+                {streaming ? <RoleplayText>{streaming}</RoleplayText> : <span className="text-muted-foreground">{characterName} is writing…</span>}
               </div>
             </div>
           ) : null}
@@ -528,6 +585,7 @@ function ChatPage() {
         </div>
 
         <div className="border-t border-border/70 bg-background/80 p-4 backdrop-blur">
+          {replyError ? <Alert variant="destructive" className="mb-3"><AlertTitle>Reply interrupted</AlertTitle><AlertDescription className="flex items-center justify-between gap-3"><span>{replyError}</span><Button size="sm" variant="secondary" disabled={busy} onClick={() => regenerate.mutate(messages.filter((message) => message.role === "assistant").at(-1)?.id ?? "")}>Retry</Button></AlertDescription></Alert> : null}
           <div className="flex items-end gap-2">
             <Textarea
               rows={2}
@@ -566,6 +624,7 @@ function ChatPage() {
             </Button>
           </div>
         </div>
+        </div>
       </div>
 
       <Sheet open={showSettings} onOpenChange={setShowSettings}>
@@ -574,6 +633,8 @@ function ChatPage() {
             <SheetTitle>Story controls</SheetTitle>
           </SheetHeader>
           <div className="space-y-6 p-4">
+            <label className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-3 py-3"><span className="text-sm">Spicy mode<span className="block text-xs text-muted-foreground">Allows mature roleplay on the next reply.</span></span><Switch checked={chat.spicy} onCheckedChange={(next) => updateChat.mutate({ spicy: next })} /></label>
+            <div className="space-y-2"><Label>Chat background</Label>{user ? <ImageUploadButton userId={user.id} folder="backgrounds" onUploaded={(path) => updateChat.mutate({ background_path: path })} onError={(error) => toast.error(error.message)} /> : null}{chat.background_path ? <Button size="sm" variant="ghost" onClick={() => updateChat.mutate({ background_path: null })}>Remove background</Button> : null}</div>
             <div className="space-y-2">
               <Label>Reply length</Label>
               <Select
@@ -681,9 +742,9 @@ function ChatPage() {
                   {summarizeNow.isPending ? "Writing…" : "Update now"}
                 </Button>
               </div>
-              <p className="rounded-xl border border-border bg-card/60 p-3 text-sm whitespace-pre-wrap text-muted-foreground">
-                {chat.summary || "No summary yet — it appears once the story gets going."}
-              </p>
+              <Textarea rows={9} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="No summary yet — it appears once the story gets going." />
+              <Button size="sm" onClick={() => updateChat.mutate({ summary: summaryDraft })}>Save summary</Button>
+              {summaryError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3"><span>{summaryError}</span><Button size="sm" variant="secondary" onClick={() => summarizeNow.mutate()}>Retry</Button></AlertDescription></Alert> : null}
             </div>
 
             <div className="space-y-2">
@@ -711,7 +772,7 @@ function ChatPage() {
               {imagesQuery.data?.length ? (
                 <div className="grid grid-cols-2 gap-2">
                   {imagesQuery.data.map((image) => (
-                    <SceneCard key={image.id} path={image.path} prompt={image.prompt} />
+                    <SceneCard key={image.id} path={image.path} prompt={image.prompt} onOpen={() => setSelectedScene(image)} />
                   ))}
                 </div>
               ) : (
@@ -733,6 +794,7 @@ function ChatPage() {
             onChange={(e) => setScenePrompt(e.target.value)}
             placeholder="Describe the moment you want to see."
           />
+          {imageError ? <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3"><span>{imageError}</span><Button size="sm" variant="secondary" onClick={() => makeScene.mutate((scenePrompt ?? "").trim())}>Retry</Button></AlertDescription></Alert> : null}
           <DialogFooter>
             <Button
               disabled={makeScene.isPending || (scenePrompt ?? "").trim().length < 3}
@@ -741,6 +803,11 @@ function ChatPage() {
               {makeScene.isPending ? "Painting…" : "Generate"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={selectedScene !== null} onOpenChange={(open) => !open && setSelectedScene(null)}>
+        <DialogContent className="max-w-4xl p-3">
+          {selectedScene ? <SceneViewer path={selectedScene.path} prompt={selectedScene.prompt} onBackground={() => updateChat.mutate({ background_path: selectedScene.path })} /> : null}
         </DialogContent>
       </Dialog>
     </AppShell>
@@ -773,12 +840,17 @@ function CharacterAvatar({
   );
 }
 
-function SceneCard({ path, prompt }: { path: string; prompt: string }) {
+function SceneCard({ path, prompt, onOpen }: { path: string; prompt: string; onOpen: () => void }) {
   const url = useSignedUrl(path);
   return (
-    <figure className="overflow-hidden rounded-xl border border-border bg-secondary/30">
+    <button type="button" onClick={onOpen} className="overflow-hidden rounded-xl border border-border bg-secondary/30 text-left">
       {url ? <img src={url} alt={prompt} className="h-28 w-full object-cover" /> : null}
-      <figcaption className="line-clamp-2 p-2 text-xs text-muted-foreground">{prompt}</figcaption>
-    </figure>
+      <span className="line-clamp-2 block p-2 text-xs text-muted-foreground">{prompt}</span>
+    </button>
   );
+}
+
+function SceneViewer({ path, prompt, onBackground }: { path: string; prompt: string; onBackground: () => void }) {
+  const url = useSignedUrl(path);
+  return <div className="space-y-3">{url ? <img src={url} alt={prompt} className="max-h-[75vh] w-full rounded-xl object-contain" /> : null}<div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{prompt}</p><Button onClick={onBackground}>Set background</Button></div></div>;
 }
