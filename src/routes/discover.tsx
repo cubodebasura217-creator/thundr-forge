@@ -146,8 +146,19 @@ function DiscoverPage() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
-            <div className="flex flex-1 gap-1 overflow-x-auto">
+              </Select>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="ml-auto"
+                disabled={dream.isPending}
+                onClick={() => dream.mutate()}
+              >
+                <Wand2 className="h-4 w-4" />
+                {dream.isPending ? "Dreaming…" : "Dream up more"}
+              </Button>
+            </div>
+            <div className="flex gap-1 overflow-x-auto">
               {TROPE_OPTIONS.map((trope) => {
                 const active = tags.includes(trope);
                 return (
@@ -169,10 +180,6 @@ function DiscoverPage() {
                 );
               })}
             </div>
-            <Button size="sm" variant="secondary" disabled={dream.isPending} onClick={() => dream.mutate()}>
-              <Wand2 className="h-4 w-4" />
-              {dream.isPending ? "Dreaming…" : "Dream up more"}
-            </Button>
           </div>
           {dream.error ? (
             <Alert variant="destructive" className="pointer-events-auto mx-auto mt-2 max-w-3xl">
