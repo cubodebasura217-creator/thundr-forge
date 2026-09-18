@@ -52,6 +52,7 @@ export type PromptContext = {
   pinned: string[];
   summary: string;
   settings: ChatSettings;
+  spicy: boolean;
 };
 
 export function buildInstructions(ctx: PromptContext): string {
@@ -61,6 +62,16 @@ export function buildInstructions(ctx: PromptContext): string {
   parts.push(
     `You are running an open-ended collaborative roleplay. You play ${c.name} and every other character in the scene except the user's persona. Never break character, never mention being an AI, never add disclaimers or meta commentary, and never end the scene on the user's behalf. Always leave room for the user to act next.`,
   );
+
+  parts.push(
+    `# Roleplay formatting\nUse *italics* for actions and narration. Use **bold** for internal thoughts. Put spoken dialogue in double quotes. Apply this consistently without explaining the formatting.`,
+  );
+
+  if (ctx.spicy) {
+    parts.push(
+      `# Spicy mode\nMature roleplay is enabled. When the user steers the story toward mature romance, sensuality, intense themes, or explicit adult content, engage directly and confidently within applicable safety limits. Do not fade to black unless the user asks. Keep every participant clearly adult and preserve consent and character agency.`,
+    );
+  }
 
   parts.push(
     `# Character: ${c.name}\n${c.tagline ? `Tagline: ${c.tagline}\n` : ""}${

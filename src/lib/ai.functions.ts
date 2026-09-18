@@ -97,22 +97,52 @@ export const draftCharacter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const raw = await generateText({
-        instructions: `You design roleplay characters. Reply with ONLY a JSON object using these keys: name, tagline, description, greeting, traits (array of up to 6 short strings), system_prompt, example_dialogue. Keep description under 180 words, greeting in the character's voice, system_prompt as director notes about how to play them. No markdown fences.`,
+        instructions: `You design roleplay characters. Reply with ONLY a JSON object using these keys: name, tagline, description, greeting. Keep description under 180 words and write the greeting in the character's voice. No markdown fences.`,
         messages: [{ role: "user", content: `Character idea: ${data.idea}` }],
         effort: "low",
       });
       const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
       const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-      const traits = parsed["traits"];
       return {
         name: String(parsed["name"] ?? ""),
         tagline: String(parsed["tagline"] ?? ""),
         description: String(parsed["description"] ?? ""),
         greeting: String(parsed["greeting"] ?? ""),
-        traits: Array.isArray(traits) ? traits.map(String).slice(0, 8) : [],
-        system_prompt: String(parsed["system_prompt"] ?? ""),
-        example_dialogue: String(parsed["example_dialogue"] ?? ""),
       };
+    } catch (error) {
+      throw toMessage(error);
+    }
+  });
+
+export const suggestContent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      characters: z.array(z.object({ name: z.string(), description: z.string() })).max(30),
+      worlds: z.array(z.object({ name: z.string(), overview: z.string() })).max(30),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const raw = await generateText({
+        instructions: `Recommend exactly six fresh roleplay ideas inspired by, but not copies of, the user's characters and worlds. Return ONLY a JSON array. Each item must contain: type ("companion" or "scenario"), title, tagline, description, greeting, image_prompt. Alternate types. Keep descriptions under 90 words and greetings immediately playable. No markdown fences.`,
+        messages: [{ role: "user", content: JSON.stringify(data) }],
+        effort: "low",
+      });
+      const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned) as unknown;
+      if (!Array.isArray(parsed)) throw new Error("Discover returned an unexpected result");
+      return parsed.slice(0, 6).map((item) => {
+        const value = item as Record<string, unknown>;
+        return {
+          type: value["type"] === "scenario" ? "scenario" as const : "companion" as const,
+          title: String(value["title"] ?? "Untitled idea"),
+          tagline: String(value["tagline"] ?? ""),
+          description: String(value["description"] ?? ""),
+          greeting: String(value["greeting"] ?? ""),
+          image_prompt: String(value["image_prompt"] ?? value["description"] ?? ""),
+        };
+      });
     } catch (error) {
       throw toMessage(error);
     }

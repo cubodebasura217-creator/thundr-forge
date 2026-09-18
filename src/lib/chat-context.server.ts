@@ -83,6 +83,7 @@ export async function loadTurnContext(
     pinned: allMessages.filter((m) => m.is_pinned).map((m) => m.content),
     summary: chat.summary,
     settings: parseSettings(chat.settings),
+    spicy: chat.spicy,
   });
 
   // Keep the tail of the transcript; older events live in the summary.
