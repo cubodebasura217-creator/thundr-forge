@@ -1,8 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LogOut, MessagesSquare, Sparkle, UserRound, Globe2 } from "lucide-react";
+import { Compass, LogOut, MessagesSquare, Sparkle, UserRound, Globe2 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
-import { ThundrWordmark } from "@/components/Brand";
+import { ThundrMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Chats", icon: MessagesSquare },
   { to: "/characters", label: "Characters", icon: Sparkle },
+  { to: "/discover", label: "Discover", icon: Compass },
   { to: "/worlds", label: "Worlds", icon: Globe2 },
   { to: "/personas", label: "Personas", icon: UserRound },
 ] as const;
@@ -26,7 +27,7 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
   if (loading || !session) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <ThundrWordmark className="animate-pulse" />
+        <ThundrMark className="animate-pulse" />
       </div>
     );
   }
@@ -36,7 +37,7 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4">
           <Link to="/" className="shrink-0">
-            <ThundrWordmark />
+            <ThundrMark />
           </Link>
           <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
             {NAV.map((item) => {

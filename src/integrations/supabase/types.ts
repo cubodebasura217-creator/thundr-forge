@@ -132,11 +132,13 @@ export type Database = {
       }
       chats: {
         Row: {
+          background_path: string | null
           character_id: string | null
           created_at: string
           id: string
           persona_id: string | null
           settings: Json
+          spicy: boolean
           summarized_count: number
           summary: string
           title: string
@@ -144,11 +146,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          background_path?: string | null
           character_id?: string | null
           created_at?: string
           id?: string
           persona_id?: string | null
           settings?: Json
+          spicy?: boolean
           summarized_count?: number
           summary?: string
           title?: string
@@ -156,11 +160,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          background_path?: string | null
           character_id?: string | null
           created_at?: string
           id?: string
           persona_id?: string | null
           settings?: Json
+          spicy?: boolean
           summarized_count?: number
           summary?: string
           title?: string
