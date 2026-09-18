@@ -8,4 +8,4 @@
 - [x] Add roleplay formatting and swipe regeneration
 - [x] Add scene fullscreen and chat wallpapers
 - [x] Add editable summaries and retry states
-- [ ] Verify build and key interactions
+- [x] Verify build
