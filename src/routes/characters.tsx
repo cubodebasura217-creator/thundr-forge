@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, PageHeader } from "@/components/AppShell";
+import { ImageUploadButton } from "@/components/ImageUploadButton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -131,9 +132,9 @@ function CharactersPage() {
         tagline: values.tagline,
         description: values.description,
         greeting: values.greeting,
-        traits,
-        system_prompt: values.system_prompt,
-        example_dialogue: values.example_dialogue,
+        traits: values.id ? traits : [],
+        system_prompt: values.id ? values.system_prompt : "",
+        example_dialogue: values.id ? values.example_dialogue : "",
         avatar_url: values.avatar_url,
         is_public: values.is_public,
       };
@@ -194,9 +195,6 @@ function CharactersPage() {
         tagline: result.tagline,
         description: result.description,
         greeting: result.greeting,
-        traitsText: result.traits.join(", "),
-        system_prompt: result.system_prompt,
-        example_dialogue: result.example_dialogue,
       }));
       toast.success("Draft ready — edit anything you like");
     },
@@ -348,6 +346,14 @@ function CharactersPage() {
                   <Wand2 className="h-4 w-4" />
                   {draft.isPending ? "Drafting…" : "Draft"}
                 </Button>
+                {user ? (
+                  <ImageUploadButton
+                    userId={user.id}
+                    folder="avatars"
+                    onUploaded={(path) => setForm((prev) => ({ ...prev, avatar_url: path }))}
+                    onError={(error) => toast.error(error.message)}
+                  />
+                ) : null}
               </div>
             </div>
 
@@ -398,34 +404,6 @@ function CharactersPage() {
                 rows={3}
                 value={form.greeting}
                 onChange={(e) => setForm({ ...form, greeting: e.target.value })}
-              />
-            </Field>
-
-            <Field label="Personality traits (comma separated)" id="c-traits">
-              <Input
-                id="c-traits"
-                value={form.traitsText}
-                onChange={(e) => setForm({ ...form, traitsText: e.target.value })}
-                placeholder="wry, protective, reckless"
-              />
-            </Field>
-
-            <Field label="Director notes / system prompt" id="c-sys">
-              <Textarea
-                id="c-sys"
-                rows={4}
-                value={form.system_prompt}
-                onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
-                placeholder="How the story should be told, hard rules, things they never do."
-              />
-            </Field>
-
-            <Field label="Example dialogue" id="c-ex">
-              <Textarea
-                id="c-ex"
-                rows={3}
-                value={form.example_dialogue}
-                onChange={(e) => setForm({ ...form, example_dialogue: e.target.value })}
               />
             </Field>
 

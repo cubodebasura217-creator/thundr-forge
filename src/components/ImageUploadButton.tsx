@@ -10,12 +10,14 @@ export function ImageUploadButton({
   onUploaded,
   disabled,
   compact,
+  onError,
 }: {
   userId: string;
   folder: string;
   onUploaded: (path: string) => void;
   disabled?: boolean;
   compact?: boolean;
+  onError?: (error: Error) => void;
 }) {
   const libraryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -26,6 +28,8 @@ export function ImageUploadButton({
     setUploading(true);
     try {
       onUploaded(await uploadFile(userId, file, folder));
+    } catch (error) {
+      onError?.(error instanceof Error ? error : new Error("Photo upload failed"));
     } finally {
       setUploading(false);
     }

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, PageHeader } from "@/components/AppShell";
+import { ImageUploadButton } from "@/components/ImageUploadButton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSignedUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/personas")({
@@ -41,11 +43,10 @@ type PersonaForm = {
   id?: string;
   name: string;
   description: string;
-  speaking_style: string;
-  preferences: string;
+  avatar_url: string | null;
 };
 
-const EMPTY: PersonaForm = { name: "", description: "", speaking_style: "", preferences: "" };
+const EMPTY: PersonaForm = { name: "", description: "", avatar_url: null };
 
 function PersonasPage() {
   const { user } = useAuth();
@@ -74,8 +75,7 @@ function PersonasPage() {
           .update({
             name: values.name,
             description: values.description,
-            speaking_style: values.speaking_style,
-            preferences: values.preferences,
+            avatar_url: values.avatar_url,
           })
           .eq("id", values.id);
         if (error) throw error;
@@ -84,8 +84,7 @@ function PersonasPage() {
           user_id: user.id,
           name: values.name,
           description: values.description,
-          speaking_style: values.speaking_style,
-          preferences: values.preferences,
+          avatar_url: values.avatar_url,
           is_active: personas.length === 0,
         });
         if (error) throw error;
@@ -146,6 +145,17 @@ function PersonasPage() {
                     placeholder="Kael Ryder"
                   />
                 </div>
+                {user ? (
+                  <div className="flex items-center gap-3">
+                    <PersonaAvatar path={form.avatar_url} name={form.name} />
+                    <ImageUploadButton
+                      userId={user.id}
+                      folder="personas"
+                      onUploaded={(path) => setForm({ ...form, avatar_url: path })}
+                      onError={(error) => toast.error(error.message)}
+                    />
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="p-desc">Description</Label>
                   <Textarea
@@ -154,25 +164,6 @@ function PersonasPage() {
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="A drifting sky-courier with a stolen map and too many debts."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p-style">Speaking style</Label>
-                  <Input
-                    id="p-style"
-                    value={form.speaking_style}
-                    onChange={(e) => setForm({ ...form, speaking_style: e.target.value })}
-                    placeholder="Dry, clipped, allergic to sincerity"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p-prefs">Story preferences</Label>
-                  <Textarea
-                    id="p-prefs"
-                    rows={3}
-                    value={form.preferences}
-                    onChange={(e) => setForm({ ...form, preferences: e.target.value })}
-                    placeholder="Slow-burn tension, heavy on worldbuilding, no time skips."
                   />
                 </div>
               </div>
@@ -203,9 +194,7 @@ function PersonasPage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-neon-soft text-primary">
-                    <UserRound className="h-4 w-4" />
-                  </span>
+                  <PersonaAvatar path={persona.avatar_url} name={persona.name} />
                   <div>
                     <h3 className="font-display text-lg leading-tight font-semibold">
                       {persona.name}
@@ -236,8 +225,7 @@ function PersonasPage() {
                       id: persona.id,
                       name: persona.name,
                       description: persona.description,
-                      speaking_style: persona.speaking_style,
-                      preferences: persona.preferences,
+                      avatar_url: persona.avatar_url,
                     });
                     setOpen(true);
                   }}
@@ -255,6 +243,15 @@ function PersonasPage() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function PersonaAvatar({ path, name }: { path: string | null; name: string }) {
+  const url = useSignedUrl(path);
+  return (
+    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-neon-soft text-primary">
+      {url ? <img src={url} alt={`${name} avatar`} className="h-full w-full object-cover" /> : <UserRound className="h-4 w-4" />}
+    </span>
   );
 }
 
