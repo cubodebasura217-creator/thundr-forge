@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +64,8 @@ type CharacterForm = {
   traitsText: string;
   system_prompt: string;
   example_dialogue: string;
+  gender: string;
+  tagsText: string;
   avatar_url: string | null;
   is_public: boolean;
   worldIds: string[];
@@ -70,10 +79,28 @@ const EMPTY: CharacterForm = {
   traitsText: "",
   system_prompt: "",
   example_dialogue: "",
+  gender: "",
+  tagsText: "",
   avatar_url: null,
   is_public: false,
   worldIds: [],
 };
+
+export const GENDER_OPTIONS = ["female", "male", "non-binary", "other"] as const;
+export const TROPE_OPTIONS = [
+  "romance",
+  "enemies to lovers",
+  "fantasy",
+  "sci-fi",
+  "slice of life",
+  "mystery",
+  "horror",
+  "adventure",
+  "comedy",
+  "royalty",
+  "vampire",
+  "school",
+] as const;
 
 function CharactersPage() {
   const { user } = useAuth();
