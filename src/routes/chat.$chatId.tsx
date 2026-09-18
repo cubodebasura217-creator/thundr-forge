@@ -430,6 +430,16 @@ function ChatPage() {
     onError: (error: Error) => setImageError(describeAiError(error)),
   });
 
+  /** Swiping left regenerates (or advances), swiping right steps back a variant. */
+  function endSwipe(message: ChatMessage, delta: number, position: number, count: number) {
+    if (delta < -60) {
+      if (position >= count) regenerate.mutate(message.id);
+      else swipe.mutate({ message, dir: 1 });
+    } else if (delta > 60 && count > 1) {
+      swipe.mutate({ message, dir: -1 });
+    }
+  }
+
   const pinned = messages.filter((m) => m.is_pinned);
 
   if (chatQuery.isLoading) {
