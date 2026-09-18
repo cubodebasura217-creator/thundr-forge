@@ -65,6 +65,8 @@ export const Route = createFileRoute("/chat/$chatId")({
         property: "og:description",
         content: "Edit, regenerate, pin and remember — a roleplay chat built for long stories.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: ChatPage,
@@ -270,6 +272,22 @@ function ChatPage() {
     },
   });
 
+  const retryReply = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not signed in");
+      setReplyError(null);
+      setBusy(true);
+      const text = await streamReply();
+      await addAssistantMessage(text);
+      await refreshMessages();
+    },
+    onError: (error: Error) => setReplyError(describeAiError(error)),
+    onSettled: () => {
+      setBusy(false);
+      setStreaming(null);
+    },
+  });
+
   const swipe = useMutation({
     mutationFn: async ({ message, dir }: { message: ChatMessage; dir: -1 | 1 }) => {
       const variants = [...message.message_variants].sort((a, b) => a.idx - b.idx);
@@ -339,6 +357,19 @@ function ChatPage() {
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
     },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const updatePersona = useMutation({
+    mutationFn: async ({ id, name, description }: { id: string; name: string; description: string }) => {
+      const { error } = await supabase.from("personas").update({ name, description }).eq("id", id);
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["chat", chatId] }),
+        queryClient.invalidateQueries({ queryKey: ["personas", "chat", user?.id] }),
+      ]);
+    },
+    onSuccess: () => toast.success("Persona updated"),
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -585,7 +616,7 @@ function ChatPage() {
         </div>
 
         <div className="border-t border-border/70 bg-background/80 p-4 backdrop-blur">
-          {replyError ? <Alert variant="destructive" className="mb-3"><AlertTitle>Reply interrupted</AlertTitle><AlertDescription className="flex items-center justify-between gap-3"><span>{replyError}</span><Button size="sm" variant="secondary" disabled={busy} onClick={() => regenerate.mutate(messages.filter((message) => message.role === "assistant").at(-1)?.id ?? "")}>Retry</Button></AlertDescription></Alert> : null}
+          {replyError ? <Alert variant="destructive" className="mb-3"><AlertTitle>Reply interrupted</AlertTitle><AlertDescription className="flex items-center justify-between gap-3"><span>{replyError}</span><Button size="sm" variant="secondary" disabled={busy} onClick={() => retryReply.mutate()}>Retry</Button></AlertDescription></Alert> : null}
           <div className="flex items-end gap-2">
             <Textarea
               rows={2}
@@ -634,6 +665,18 @@ function ChatPage() {
           </SheetHeader>
           <div className="space-y-6 p-4">
             <label className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-3 py-3"><span className="text-sm">Spicy mode<span className="block text-xs text-muted-foreground">Allows mature roleplay on the next reply.</span></span><Switch checked={chat.spicy} onCheckedChange={(next) => updateChat.mutate({ spicy: next })} /></label>
+            {chat.personas ? (
+              <div className="space-y-2">
+                <Label>Edit active persona</Label>
+                <Input id="active-persona-name" defaultValue={chat.personas.name} />
+                <Textarea id="active-persona-description" rows={4} defaultValue={chat.personas.description} />
+                <Button size="sm" variant="secondary" onClick={() => {
+                  const name = (document.getElementById("active-persona-name") as HTMLInputElement | null)?.value ?? chat.personas?.name ?? "";
+                  const description = (document.getElementById("active-persona-description") as HTMLTextAreaElement | null)?.value ?? chat.personas?.description ?? "";
+                  if (chat.persona_id) updatePersona.mutate({ id: chat.persona_id, name, description });
+                }}><UserRound className="h-4 w-4" />Save persona</Button>
+              </div>
+            ) : null}
             <div className="space-y-2"><Label>Chat background</Label>{user ? <ImageUploadButton userId={user.id} folder="backgrounds" onUploaded={(path) => updateChat.mutate({ background_path: path })} onError={(error) => toast.error(error.message)} /> : null}{chat.background_path ? <Button size="sm" variant="ghost" onClick={() => updateChat.mutate({ background_path: null })}>Remove background</Button> : null}</div>
             <div className="space-y-2">
               <Label>Reply length</Label>

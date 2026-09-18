@@ -31,6 +31,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Continue a story or start a new one with your characters.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: ChatsPage,

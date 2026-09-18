@@ -41,6 +41,8 @@ export const Route = createFileRoute("/characters")({
         property: "og:description",
         content: "Design a character, link a world, and roleplay with them instantly.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: CharactersPage,

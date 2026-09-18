@@ -34,6 +34,8 @@ export const Route = createFileRoute("/personas")({
       },
       { property: "og:title", content: "Your personas — Thundr" },
       { property: "og:description", content: "Switch who you are in every story." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: PersonasPage,
