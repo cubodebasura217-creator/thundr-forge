@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +64,8 @@ type CharacterForm = {
   traitsText: string;
   system_prompt: string;
   example_dialogue: string;
+  gender: string;
+  tagsText: string;
   avatar_url: string | null;
   is_public: boolean;
   worldIds: string[];
@@ -70,10 +79,28 @@ const EMPTY: CharacterForm = {
   traitsText: "",
   system_prompt: "",
   example_dialogue: "",
+  gender: "",
+  tagsText: "",
   avatar_url: null,
   is_public: false,
   worldIds: [],
 };
+
+export const GENDER_OPTIONS = ["female", "male", "non-binary", "other"] as const;
+export const TROPE_OPTIONS = [
+  "romance",
+  "enemies to lovers",
+  "fantasy",
+  "sci-fi",
+  "slice of life",
+  "mystery",
+  "horror",
+  "adventure",
+  "comedy",
+  "royalty",
+  "vampire",
+  "school",
+] as const;
 
 function CharactersPage() {
   const { user } = useAuth();
@@ -137,6 +164,11 @@ function CharactersPage() {
         traits: values.id ? traits : [],
         system_prompt: values.id ? values.system_prompt : "",
         example_dialogue: values.id ? values.example_dialogue : "",
+        gender: values.gender,
+        tags: values.tagsText
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean),
         avatar_url: values.avatar_url,
         is_public: values.is_public,
       };
@@ -248,6 +280,8 @@ function CharactersPage() {
       traitsText: character.traits.join(", "),
       system_prompt: character.system_prompt,
       example_dialogue: character.example_dialogue,
+      gender: character.gender ?? "",
+      tagsText: (character.tags ?? []).join(", "),
       avatar_url: character.avatar_url,
       is_public: character.is_public,
       worldIds: (links ?? []).map((l) => l.world_id),
@@ -389,6 +423,40 @@ function CharactersPage() {
                 placeholder="Storm-caller with a grudge"
               />
             </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select
+                  value={form.gender || "unspecified"}
+                  onValueChange={(value) =>
+                    setForm({ ...form, gender: value === "unspecified" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unspecified">Not set</SelectItem>
+                    {GENDER_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Field label="Tags (comma separated)" id="c-tags">
+                <Input
+                  id="c-tags"
+                  value={form.tagsText}
+                  onChange={(e) => setForm({ ...form, tagsText: e.target.value })}
+                  placeholder="romance, fantasy, enemies to lovers"
+                />
+              </Field>
+            </div>
+
+
 
             <Field label="Description" id="c-desc">
               <Textarea

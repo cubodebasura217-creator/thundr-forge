@@ -14,6 +14,7 @@ import {
   Settings2,
   Sparkle,
   Trash2,
+  Undo2,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -170,7 +171,7 @@ function ChatPage() {
     queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
 
   /** Streams one reply from the model, returning the finished text. */
-  async function streamReply(excludeMessageIds: string[] = []) {
+  async function streamReply(excludeMessageIds: string[] = [], nudge?: string) {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) throw new Error("Your session expired — sign in again.");
@@ -178,7 +179,7 @@ function ChatPage() {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ chatId, excludeMessageIds }),
+      body: JSON.stringify({ chatId, excludeMessageIds, ...(nudge ? { nudge } : {}) }),
     });
     if (!res.ok || !res.body) {
       throw new Error((await res.text()) || "The reply failed to generate.");
@@ -229,16 +230,24 @@ function ChatPage() {
       if (!user) throw new Error("Not signed in");
       setReplyError(null);
       setBusy(true);
-      const { error } = await supabase
-        .from("messages")
-        .insert({ chat_id: chatId, user_id: user.id, role: "user", content });
-      if (error) throw error;
-      await refreshMessages();
-      const text = await streamReply();
+      if (content) {
+        const { error } = await supabase
+          .from("messages")
+          .insert({ chat_id: chatId, user_id: user.id, role: "user", content });
+        if (error) throw error;
+        await refreshMessages();
+      }
+      // An empty send means "keep going": the model continues the scene on its own.
+      const text = await streamReply(
+        [],
+        content
+          ? undefined
+          : "Continue the scene on your own: keep narrating and let the character act or speak next, without waiting for the user.",
+      );
       await addAssistantMessage(text);
       await supabase.from("chats").update({ updated_at: new Date().toISOString() }).eq("id", chatId);
       await refreshMessages();
-      await maybeSummarize(messages.length + 2);
+      await maybeSummarize(messages.length + (content ? 2 : 1));
     },
     onError: (error: Error) => setReplyError(describeAiError(error)),
     onSettled: () => {
@@ -343,6 +352,21 @@ function ChatPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /** Deletes a message together with everything after it, rewinding the story. */
+  const rewindFrom = useMutation({
+    mutationFn: async (message: ChatMessage) => {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("chat_id", chatId)
+        .gte("created_at", message.created_at);
+      if (error) throw error;
+      await refreshMessages();
+    },
+    onSuccess: () => toast.success("Story rewound"),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const updateSettings = useMutation({
     mutationFn: async (next: ChatSettings) => {
       const { error } = await supabase.from("chats").update({ settings: next }).eq("id", chatId);
@@ -405,6 +429,16 @@ function ChatPage() {
     },
     onError: (error: Error) => setImageError(describeAiError(error)),
   });
+
+  /** Swiping left regenerates (or advances), swiping right steps back a variant. */
+  function endSwipe(message: ChatMessage, delta: number, position: number, count: number) {
+    if (delta < -60) {
+      if (position >= count) regenerate.mutate(message.id);
+      else swipe.mutate({ message, dir: 1 });
+    } else if (delta > 60 && count > 1) {
+      swipe.mutate({ message, dir: -1 });
+    }
+  }
 
   const pinned = messages.filter((m) => m.is_pinned);
 
@@ -498,10 +532,18 @@ function ChatPage() {
                       if (isUser || touchStart.current?.id !== message.id) return;
                       const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStart.current.x;
                       touchStart.current = null;
-                      if (delta < -60) {
-                        if (position >= variants.length) regenerate.mutate(message.id);
-                        else swipe.mutate({ message, dir: 1 });
-                      } else if (delta > 60 && variants.length > 1) swipe.mutate({ message, dir: -1 });
+                      endSwipe(message, delta, position, variants.length);
+                    }}
+                    onPointerDown={(event) => {
+                      if (event.pointerType === "touch") return;
+                      touchStart.current = { id: message.id, x: event.clientX };
+                    }}
+                    onPointerUp={(event) => {
+                      if (event.pointerType === "touch") return;
+                      if (isUser || touchStart.current?.id !== message.id) return;
+                      const delta = event.clientX - touchStart.current.x;
+                      touchStart.current = null;
+                      endSwipe(message, delta, position, variants.length);
                     }}
                     className={cn(
                       "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
@@ -598,6 +640,19 @@ function ChatPage() {
                     >
                       <Trash2 />
                     </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Delete this message and everything after it"
+                      title="Rewind to here"
+                      onClick={() => {
+                        if (window.confirm("Delete this message and every message after it?")) {
+                          rewindFrom.mutate(message);
+                        }
+                      }}
+                    >
+                      <Undo2 />
+                    </Button>
                   </div>
                 ) : null}
               </div>
@@ -645,8 +700,9 @@ function ChatPage() {
             </Button>
             <Button
               size="icon"
-              aria-label="Send message"
-              disabled={busy || !draft.trim()}
+              aria-label={draft.trim() ? "Send message" : "Let the story continue"}
+              title={draft.trim() ? "Send" : "Send empty to let the character continue"}
+              disabled={busy}
               onClick={() => {
                 send.mutate(draft.trim());
                 setDraft("");

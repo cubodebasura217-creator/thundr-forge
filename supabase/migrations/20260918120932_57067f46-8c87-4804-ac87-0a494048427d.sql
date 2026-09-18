@@ -1,0 +1,2 @@
+ALTER TABLE public.characters ADD COLUMN IF NOT EXISTS gender TEXT NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS characters_tags_idx ON public.characters USING GIN (tags);

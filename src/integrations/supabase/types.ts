@@ -53,12 +53,14 @@ export type Database = {
           created_at: string
           description: string
           example_dialogue: string
+          gender: string
           greeting: string
           id: string
           is_public: boolean
           name: string
           system_prompt: string
           tagline: string
+          tags: string[]
           traits: string[]
           updated_at: string
           user_id: string
@@ -68,12 +70,14 @@ export type Database = {
           created_at?: string
           description?: string
           example_dialogue?: string
+          gender?: string
           greeting?: string
           id?: string
           is_public?: boolean
           name: string
           system_prompt?: string
           tagline?: string
+          tags?: string[]
           traits?: string[]
           updated_at?: string
           user_id: string
@@ -83,12 +87,14 @@ export type Database = {
           created_at?: string
           description?: string
           example_dialogue?: string
+          gender?: string
           greeting?: string
           id?: string
           is_public?: boolean
           name?: string
           system_prompt?: string
           tagline?: string
+          tags?: string[]
           traits?: string[]
           updated_at?: string
           user_id?: string
