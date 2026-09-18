@@ -170,7 +170,7 @@ function ChatPage() {
     queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
 
   /** Streams one reply from the model, returning the finished text. */
-  async function streamReply(excludeMessageIds: string[] = []) {
+  async function streamReply(excludeMessageIds: string[] = [], nudge?: string) {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) throw new Error("Your session expired — sign in again.");
@@ -178,7 +178,7 @@ function ChatPage() {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ chatId, excludeMessageIds }),
+      body: JSON.stringify({ chatId, excludeMessageIds, ...(nudge ? { nudge } : {}) }),
     });
     if (!res.ok || !res.body) {
       throw new Error((await res.text()) || "The reply failed to generate.");
@@ -229,16 +229,24 @@ function ChatPage() {
       if (!user) throw new Error("Not signed in");
       setReplyError(null);
       setBusy(true);
-      const { error } = await supabase
-        .from("messages")
-        .insert({ chat_id: chatId, user_id: user.id, role: "user", content });
-      if (error) throw error;
-      await refreshMessages();
-      const text = await streamReply();
+      if (content) {
+        const { error } = await supabase
+          .from("messages")
+          .insert({ chat_id: chatId, user_id: user.id, role: "user", content });
+        if (error) throw error;
+        await refreshMessages();
+      }
+      // An empty send means "keep going": the model continues the scene on its own.
+      const text = await streamReply(
+        [],
+        content
+          ? undefined
+          : "Continue the scene on your own: keep narrating and let the character act or speak next, without waiting for the user.",
+      );
       await addAssistantMessage(text);
       await supabase.from("chats").update({ updated_at: new Date().toISOString() }).eq("id", chatId);
       await refreshMessages();
-      await maybeSummarize(messages.length + 2);
+      await maybeSummarize(messages.length + (content ? 2 : 1));
     },
     onError: (error: Error) => setReplyError(describeAiError(error)),
     onSettled: () => {
