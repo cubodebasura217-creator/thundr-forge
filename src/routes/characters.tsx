@@ -164,6 +164,11 @@ function CharactersPage() {
         traits: values.id ? traits : [],
         system_prompt: values.id ? values.system_prompt : "",
         example_dialogue: values.id ? values.example_dialogue : "",
+        gender: values.gender,
+        tags: values.tagsText
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean),
         avatar_url: values.avatar_url,
         is_public: values.is_public,
       };
@@ -275,6 +280,8 @@ function CharactersPage() {
       traitsText: character.traits.join(", "),
       system_prompt: character.system_prompt,
       example_dialogue: character.example_dialogue,
+      gender: character.gender ?? "",
+      tagsText: (character.tags ?? []).join(", "),
       avatar_url: character.avatar_url,
       is_public: character.is_public,
       worldIds: (links ?? []).map((l) => l.world_id),
@@ -416,6 +423,40 @@ function CharactersPage() {
                 placeholder="Storm-caller with a grudge"
               />
             </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select
+                  value={form.gender || "unspecified"}
+                  onValueChange={(value) =>
+                    setForm({ ...form, gender: value === "unspecified" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unspecified">Not set</SelectItem>
+                    {GENDER_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Field label="Tags (comma separated)" id="c-tags">
+                <Input
+                  id="c-tags"
+                  value={form.tagsText}
+                  onChange={(e) => setForm({ ...form, tagsText: e.target.value })}
+                  placeholder="romance, fantasy, enemies to lovers"
+                />
+              </Field>
+            </div>
+
+
 
             <Field label="Description" id="c-desc">
               <Textarea
