@@ -132,7 +132,8 @@ function DiscoverPage() {
     <AppShell wide>
       <div className="relative h-[calc(100vh-4rem)] w-full">
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3">
-          <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-background/70 p-2 backdrop-blur-xl">
+          <div className="pointer-events-auto mx-auto grid max-w-3xl gap-2 rounded-2xl border border-border/60 bg-background/70 p-2 backdrop-blur-xl">
+            <div className="flex items-center gap-2">
             <Select value={gender} onValueChange={setGender}>
               <SelectTrigger className="h-9 w-36">
                 <SelectValue />
