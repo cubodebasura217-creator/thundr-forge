@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { GatewayError, openResponsesStream, toTextStream } from "@/lib/ai.server";
+import { loadAiConfig } from "@/lib/ai-key.server";
+import { GatewayError, REPLY_MAX_TOKENS, openChatStream, toTextStream } from "@/lib/ai.server";
 import { loadTurnContext } from "@/lib/chat-context.server";
 import { clientForRequest } from "@/lib/supabase-request.server";
 
@@ -25,7 +26,13 @@ export const Route = createFileRoute("/api/chat")({
             messages.push({ role: "user", content: `(Director note: ${body.nudge})` });
           }
 
-          const upstream = await openResponsesStream({ instructions, messages, effort: "low" });
+          const config = await loadAiConfig(supabase);
+          const upstream = await openChatStream({
+            instructions,
+            messages,
+            maxTokens: REPLY_MAX_TOKENS,
+            config,
+          });
 
           return new Response(toTextStream(upstream), {
             headers: {
