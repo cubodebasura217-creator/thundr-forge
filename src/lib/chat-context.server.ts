@@ -86,8 +86,8 @@ export async function loadTurnContext(
     spicy: chat.spicy,
   });
 
-  // Keep the tail of the transcript; older events live in the summary.
-  const window: StoredMessage[] = allMessages.slice(-30);
+  // Keep only the last 12 turns; older events live in the summary, pins and lore.
+  const window: StoredMessage[] = allMessages.slice(-12);
   const messages: GwMessage[] = window.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content,

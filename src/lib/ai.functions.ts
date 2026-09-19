@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { loadAiConfig } from "@/lib/ai-key.server";
 import { GatewayError, generateImageBase64, generateText } from "@/lib/ai.server";
 import { SUMMARY_INSTRUCTIONS } from "@/lib/prompt";
 
@@ -51,7 +52,8 @@ export const summarizeChat = createServerFn({ method: "POST" })
             content: `Previous summary:\n${chat.summary || "(none yet)"}\n\nNew messages to fold in:\n${transcript}`,
           },
         ],
-        effort: "low",
+        maxTokens: 700,
+        config: await loadAiConfig(supabase),
       });
 
       const { error } = await supabase
@@ -94,12 +96,13 @@ export const generateImage = createServerFn({ method: "POST" })
 export const draftCharacter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ idea: z.string().min(3).max(500) }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
       const raw = await generateText({
         instructions: `You design roleplay characters. Reply with ONLY a JSON object using these keys: name, tagline, description, greeting. Keep description under 180 words and write the greeting in the character's voice. No markdown fences.`,
         messages: [{ role: "user", content: `Character idea: ${data.idea}` }],
-        effort: "low",
+        maxTokens: 700,
+        config: await loadAiConfig(context.supabase),
       });
       const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
       const parsed = JSON.parse(cleaned) as Record<string, unknown>;
@@ -122,12 +125,13 @@ export const suggestContent = createServerFn({ method: "POST" })
       worlds: z.array(z.object({ name: z.string(), overview: z.string() })).max(30),
     }).parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
       const raw = await generateText({
         instructions: `Recommend exactly six fresh roleplay ideas inspired by, but not copies of, the user's characters and worlds. Return ONLY a JSON array. Each item must contain: type ("companion" or "scenario"), title, tagline, description, greeting, image_prompt. Alternate types. Keep descriptions under 90 words and greetings immediately playable. No markdown fences.`,
         messages: [{ role: "user", content: JSON.stringify(data) }],
-        effort: "low",
+        maxTokens: 700,
+        config: await loadAiConfig(context.supabase),
       });
       const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
       const parsed = JSON.parse(cleaned) as unknown;
