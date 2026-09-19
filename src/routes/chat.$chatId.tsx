@@ -820,6 +820,8 @@ function ChatPage() {
                 }
               />
             </label>
+
+            <ApiKeyCard />
           </div>
         </SheetContent>
       </Sheet>
