@@ -1,5 +1,13 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Compass, LogOut, MessagesSquare, Sparkle, UserRound, Globe2 } from "lucide-react";
+import {
+  Compass,
+  LogOut,
+  MessagesSquare,
+  Settings,
+  Sparkle,
+  UserRound,
+  Globe2,
+} from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 import { ThundrMark } from "@/components/Brand";
@@ -13,6 +21,7 @@ const NAV = [
   { to: "/discover", label: "Discover", icon: Compass },
   { to: "/worlds", label: "Worlds", icon: Globe2 },
   { to: "/personas", label: "Personas", icon: UserRound },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppShell({ children, wide }: { children: ReactNode; wide?: boolean }) {

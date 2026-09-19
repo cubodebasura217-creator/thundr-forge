@@ -29,9 +29,14 @@ export class GatewayError extends Error {
   }
 }
 
-function endpointFor(config: AiConfig): { url: string; model: string; headers: Record<string, string> } {
+function endpointFor(config: AiConfig): {
+  url: string;
+  model: string;
+  headers: Record<string, string>;
+} {
   if (config.provider === "gemini" && config.apiKey) {
     return {
+      // Google's OpenAI-compatibility endpoint accepts bare model ids like "gemini-2.5-flash".
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       model: "gemini-2.5-flash",
       headers: { Authorization: `Bearer ${config.apiKey}` },
@@ -59,7 +64,9 @@ export async function openChatStream(opts: {
   config?: AiConfig;
   signal?: AbortSignal;
 }): Promise<Response> {
-  const { url, model, headers } = endpointFor(opts.config ?? LOVABLE_CONFIG);
+  const config = opts.config ?? LOVABLE_CONFIG;
+  const provider = config.provider;
+  const { url, model, headers } = endpointFor(config);
 
   const res = await fetch(url, {
     method: "POST",
@@ -78,24 +85,46 @@ export async function openChatStream(opts: {
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new GatewayError(res.status, gatewayMessage(res.status, body));
+    throw new GatewayError(res.status, gatewayMessage(res.status, body, { provider, model }));
   }
   return res;
 }
 
-export function gatewayMessage(status: number, body: string): string {
+function providerLabel(provider: AiConfig["provider"]): string {
+  if (provider === "gemini") return "your Gemini key";
+  if (provider === "openrouter") return "your OpenRouter key";
+  return "the built-in AI";
+}
+
+export function gatewayMessage(
+  status: number,
+  body: string,
+  source?: { provider?: AiConfig["provider"]; model?: string },
+): string {
+  const provider = source?.provider ?? "lovable";
+  const model = source?.model ?? "";
+  let upstream = "";
   try {
     const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string };
-    const msg = parsed.error?.message ?? parsed.message;
-    if (msg) return msg;
+    upstream = (parsed.error?.message ?? parsed.message ?? "").trim();
   } catch {
     /* not json */
   }
+
+  if (status === 404) {
+    const where = provider === "lovable" ? "the built-in AI service" : providerLabel(provider);
+    const detail = upstream ? ` (${upstream})` : "";
+    return `The AI model "${model}" isn't available on ${where}${detail}. Pick a different AI in Settings, or clear your own key to use the built-in AI.`;
+  }
+  if (upstream) return upstream;
+  if (status === 400)
+    return `The AI request was rejected as invalid by ${providerLabel(provider)}. The model "${model}" may not accept these settings.`;
   if (status === 401 || status === 403)
-    return "The AI key was rejected. Check your own key in story controls, or clear it to use the built-in AI.";
-  if (status === 402) return "The workspace is out of AI credits. Add credits to keep generating.";
+    return `${providerLabel(provider)} was rejected. Check your key in Settings, or clear it to use the built-in AI.`;
+  if (status === 402)
+    return "The built-in AI is out of credits. Top up credits, or add your own Gemini/OpenRouter key in Settings.";
   if (status === 429) return "Too many requests right now — try again in a moment.";
-  return `AI request failed (${status}).`;
+  return `AI request failed (${status}) using ${providerLabel(provider)}.`;
 }
 
 function* parseSseLines(buffer: string): Generator<string> {

@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ApiKeyCard } from "@/components/ApiKeyCard";
 import { AppShell } from "@/components/AppShell";
 import { ImageUploadButton } from "@/components/ImageUploadButton";
 import { RoleplayText } from "@/components/RoleplayText";
@@ -958,97 +959,3 @@ function SceneViewer({ path, prompt, onBackground }: { path: string; prompt: str
 }
 
 /** Optional bring-your-own-key card: runs chats on the user's own Gemini or OpenRouter key. */
-function ApiKeyCard() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [provider, setProvider] = useState("lovable");
-  const [key, setKey] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  const stored = useQuery({
-    queryKey: ["ai-key", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_ai_keys")
-        .select("provider, api_key")
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return data ?? { provider: "lovable", api_key: "" };
-    },
-  });
-
-  useEffect(() => {
-    if (!stored.data || loaded) return;
-    setProvider(stored.data.provider || "lovable");
-    setKey(stored.data.api_key || "");
-    setLoaded(true);
-  }, [stored.data, loaded]);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("Sign in first");
-      const trimmed = key.trim();
-      const { error } = await supabase.from("user_ai_keys").upsert({
-        user_id: user.id,
-        provider: trimmed ? provider : "lovable",
-        api_key: trimmed && provider !== "lovable" ? trimmed : "",
-      });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["ai-key", user?.id] });
-      toast.success(
-        provider === "lovable" || !key.trim()
-          ? "Using the built-in AI"
-          : "Your own key is now in use",
-      );
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border bg-card/50 p-3">
-      <div>
-        <p className="text-sm">Use your own AI key</p>
-        <p className="text-xs text-muted-foreground">
-          Optional. Leave this on the built-in AI unless you want chats billed to your own account.
-        </p>
-      </div>
-
-      <Select value={provider} onValueChange={setProvider}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="lovable">Built-in AI (default)</SelectItem>
-          <SelectItem value="gemini">My Gemini key</SelectItem>
-          <SelectItem value="openrouter">My OpenRouter key</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {provider !== "lovable" && (
-        <div className="space-y-2">
-          <Label htmlFor="own-key">API key</Label>
-          <Input
-            id="own-key"
-            type="password"
-            autoComplete="off"
-            value={key}
-            placeholder={provider === "gemini" ? "AIza..." : "sk-or-..."}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </div>
-      )}
-
-      <Button
-        size="sm"
-        className="w-full"
-        disabled={save.isPending || (provider !== "lovable" && !key.trim())}
-        onClick={() => save.mutate()}
-      >
-        {save.isPending ? "Saving…" : "Save key setting"}
-      </Button>
-    </div>
-  );
-}
