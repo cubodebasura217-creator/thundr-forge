@@ -64,7 +64,9 @@ export async function openChatStream(opts: {
   config?: AiConfig;
   signal?: AbortSignal;
 }): Promise<Response> {
-  const { url, model, headers } = endpointFor(opts.config ?? LOVABLE_CONFIG);
+  const config = opts.config ?? LOVABLE_CONFIG;
+  const provider = config.provider;
+  const { url, model, headers } = endpointFor(config);
 
   const res = await fetch(url, {
     method: "POST",
