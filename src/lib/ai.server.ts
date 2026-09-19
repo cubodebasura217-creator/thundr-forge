@@ -1,15 +1,25 @@
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const CHAT_MODEL = "openai/gpt-6-astra";
+/** Fast, low-cost chat model used for every roleplay turn. */
+const CHAT_MODEL = "google/gemini-3.1-flash-lite";
 const IMAGE_MODEL = "lovable/image-standard";
+
+/** Keeps replies punchy and cheap. */
+export const REPLY_MAX_TOKENS = 350;
+const UTILITY_MAX_TOKENS = 700;
 
 export type GwRole = "user" | "assistant";
 export type GwMessage = { role: GwRole; content: string };
 
-function apiKey() {
+/** Which service (and key) a request should run on. */
+export type AiConfig = { provider: "lovable" | "gemini" | "openrouter"; apiKey: string };
+
+function lovableKey() {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   return key;
 }
+
+export const LOVABLE_CONFIG: AiConfig = { provider: "lovable", apiKey: "" };
 
 export class GatewayError extends Error {
   status: number;
@@ -19,36 +29,50 @@ export class GatewayError extends Error {
   }
 }
 
-/** Opens a streaming Responses API call and returns the raw SSE response. */
-export async function openResponsesStream(opts: {
+function endpointFor(config: AiConfig): { url: string; model: string; headers: Record<string, string> } {
+  if (config.provider === "gemini" && config.apiKey) {
+    return {
+      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      model: "gemini-2.5-flash",
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    };
+  }
+  if (config.provider === "openrouter" && config.apiKey) {
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: "google/gemini-2.5-flash",
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    };
+  }
+  return {
+    url: `${GATEWAY}/chat/completions`,
+    model: CHAT_MODEL,
+    headers: { "Lovable-API-Key": lovableKey(), "X-Lovable-AIG-SDK": "fetch" },
+  };
+}
+
+/** Opens a streaming chat-completions call and returns the raw SSE response. */
+export async function openChatStream(opts: {
   instructions: string;
   messages: GwMessage[];
-  effort?: "low" | "medium" | "high";
+  maxTokens?: number;
+  config?: AiConfig;
   signal?: AbortSignal;
 }): Promise<Response> {
-  const res = await fetch(`${GATEWAY}/responses`, {
+  const { url, model, headers } = endpointFor(opts.config ?? LOVABLE_CONFIG);
+
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey(),
-      "X-Lovable-AIG-SDK": "fetch",
-    },
+    headers: { "Content-Type": "application/json", ...headers },
     ...(opts.signal ? { signal: opts.signal } : {}),
     body: JSON.stringify({
-      model: CHAT_MODEL,
-      instructions: opts.instructions,
-      input: opts.messages.map((m) => ({
-        role: m.role,
-        content: [
-          {
-            type: m.role === "assistant" ? "output_text" : "input_text",
-            text: m.content,
-          },
-        ],
-      })),
+      model,
       stream: true,
-      store: false,
-      reasoning: { effort: opts.effort ?? "low" },
+      max_tokens: opts.maxTokens ?? REPLY_MAX_TOKENS,
+      messages: [
+        { role: "system", content: opts.instructions },
+        ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
     }),
   });
 
@@ -67,6 +91,8 @@ export function gatewayMessage(status: number, body: string): string {
   } catch {
     /* not json */
   }
+  if (status === 401 || status === 403)
+    return "The AI key was rejected. Check your own key in story controls, or clear it to use the built-in AI.";
   if (status === 402) return "The workspace is out of AI credits. Add credits to keep generating.";
   if (status === 429) return "Too many requests right now — try again in a moment.";
   return `AI request failed (${status}).`;
@@ -79,7 +105,20 @@ function* parseSseLines(buffer: string): Generator<string> {
   }
 }
 
-/** Converts a Responses SSE stream into a plain UTF-8 text delta stream. */
+type StreamEvent = {
+  type?: string;
+  delta?: string;
+  choices?: Array<{ delta?: { content?: string | null } }>;
+};
+
+function deltaFrom(event: StreamEvent): string {
+  const chunk = event.choices?.[0]?.delta?.content;
+  if (chunk) return chunk;
+  if (event.type === "response.output_text.delta" && event.delta) return event.delta;
+  return "";
+}
+
+/** Converts an SSE stream into a plain UTF-8 text delta stream. */
 export function toTextStream(res: Response): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -102,8 +141,7 @@ export function toTextStream(res: Response): ReadableStream<Uint8Array> {
           for (const data of parseSseLines(chunk)) {
             if (!data || data === "[DONE]") continue;
             try {
-              const event = JSON.parse(data) as { type?: string; delta?: string };
-              if (event.type === "response.output_text.delta" && event.delta) out += event.delta;
+              out += deltaFrom(JSON.parse(data) as StreamEvent);
             } catch {
               /* ignore keep-alives */
             }
@@ -121,13 +159,14 @@ export function toTextStream(res: Response): ReadableStream<Uint8Array> {
   });
 }
 
-/** Runs a streaming Responses call server-side and returns the full text. */
+/** Runs a streaming chat call server-side and returns the full text. */
 export async function generateText(opts: {
   instructions: string;
   messages: GwMessage[];
-  effort?: "low" | "medium" | "high";
+  maxTokens?: number;
+  config?: AiConfig;
 }): Promise<string> {
-  const res = await openResponsesStream(opts);
+  const res = await openChatStream({ ...opts, maxTokens: opts.maxTokens ?? UTILITY_MAX_TOKENS });
   const reader = toTextStream(res).getReader();
   const decoder = new TextDecoder();
   let text = "";
@@ -145,7 +184,7 @@ export async function generateImageBase64(prompt: string): Promise<string> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey(),
+      "Lovable-API-Key": lovableKey(),
       "X-Lovable-AIG-SDK": "fetch",
     },
     body: JSON.stringify({ model: IMAGE_MODEL, prompt, n: 1 }),
