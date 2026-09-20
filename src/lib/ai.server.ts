@@ -33,15 +33,17 @@ function endpointFor(config: AiConfig): {
   url: string;
   model: string;
   headers: Record<string, string>;
+  protocol: "chat-completions" | "gemini-native";
 } {
   if (config.provider === "gemini" && config.apiKey) {
-    // Google's OpenAI-compatibility endpoint accepts bare model ids like "gemini-1.5-flash".
-    // gemini-2.5-flash is NOT on Google's free tier, so default to the free-tier gemini-1.5-flash.
     const model = config.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash";
     return {
-      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      // AI Studio keys are most reliable on Google's native endpoint. The query parameter
+      // supports standard AI Studio keys whose projects reject OpenAI-compatible Bearer auth.
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(config.apiKey)}`,
       model,
-      headers: { Authorization: `Bearer ${config.apiKey}` },
+      headers: { "x-goog-api-key": config.apiKey },
+      protocol: "gemini-native",
     };
   }
   if (config.provider === "openrouter" && config.apiKey) {
@@ -49,12 +51,43 @@ function endpointFor(config: AiConfig): {
       url: "https://openrouter.ai/api/v1/chat/completions",
       model: "google/gemini-2.5-flash",
       headers: { Authorization: `Bearer ${config.apiKey}` },
+      protocol: "chat-completions",
     };
   }
   return {
     url: `${GATEWAY}/chat/completions`,
     model: CHAT_MODEL,
     headers: { "Lovable-API-Key": lovableKey(), "X-Lovable-AIG-SDK": "fetch" },
+    protocol: "chat-completions",
+  };
+}
+
+function requestBody(
+  protocol: "chat-completions" | "gemini-native",
+  model: string,
+  instructions: string,
+  messages: GwMessage[],
+  maxTokens: number,
+) {
+  if (protocol === "gemini-native") {
+    return {
+      systemInstruction: { parts: [{ text: instructions }] },
+      contents: messages.map((message) => ({
+        role: message.role === "assistant" ? "model" : "user",
+        parts: [{ text: message.content }],
+      })),
+      generationConfig: { maxOutputTokens: maxTokens },
+    };
+  }
+
+  return {
+    model,
+    stream: true,
+    max_tokens: maxTokens,
+    messages: [
+      { role: "system", content: instructions },
+      ...messages.map((message) => ({ role: message.role, content: message.content })),
+    ],
   };
 }
 
@@ -68,21 +101,14 @@ export async function openChatStream(opts: {
 }): Promise<Response> {
   const config = opts.config ?? LOVABLE_CONFIG;
   const provider = config.provider;
-  const { url, model, headers } = endpointFor(config);
+  const { url, model, headers, protocol } = endpointFor(config);
+  const maxTokens = opts.maxTokens ?? REPLY_MAX_TOKENS;
 
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
     ...(opts.signal ? { signal: opts.signal } : {}),
-    body: JSON.stringify({
-      model,
-      stream: true,
-      max_tokens: opts.maxTokens ?? REPLY_MAX_TOKENS,
-      messages: [
-        { role: "system", content: opts.instructions },
-        ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-    }),
+    body: JSON.stringify(requestBody(protocol, model, opts.instructions, opts.messages, maxTokens)),
   });
 
   if (!res.ok) {
@@ -106,12 +132,23 @@ export function gatewayMessage(
   const provider = source?.provider ?? "lovable";
   const model = source?.model ?? "";
   let upstream = "";
+  let upstreamStatus = "";
   try {
-    const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string };
+    const parsed = JSON.parse(body) as {
+      error?: { message?: string; status?: string };
+      message?: string;
+      status?: string;
+    };
     upstream = (parsed.error?.message ?? parsed.message ?? "").trim();
+    upstreamStatus = (parsed.error?.status ?? parsed.status ?? "").trim();
   } catch {
-    /* not json */
+    upstream = body.trim();
   }
+
+  // Google error bodies already contain the actionable reason (invalid key, disabled API,
+  // unsupported region/model, or quota). Preserve it exactly instead of hiding it behind a 404.
+  if (provider === "gemini" && upstream) return upstream;
+  if (provider === "gemini" && upstreamStatus) return upstreamStatus;
 
   if (status === 404) {
     const where = provider === "lovable" ? "the built-in AI service" : providerLabel(provider);
@@ -140,12 +177,22 @@ type StreamEvent = {
   type?: string;
   delta?: string;
   choices?: Array<{ delta?: { content?: string | null } }>;
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string; blockReasonMessage?: string };
+  error?: { message?: string; status?: string };
 };
 
 function deltaFrom(event: StreamEvent): string {
   const chunk = event.choices?.[0]?.delta?.content;
   if (chunk) return chunk;
   if (event.type === "response.output_text.delta" && event.delta) return event.delta;
+  const geminiChunk = event.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text ?? "")
+    .join("");
+  if (geminiChunk) return geminiChunk;
   return "";
 }
 
@@ -153,7 +200,9 @@ function deltaFrom(event: StreamEvent): string {
 export function toTextStream(res: Response): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  const reader = res.body!.getReader();
+  const body = res.body;
+  if (!body) throw new GatewayError(502, "The AI service returned an empty response stream.");
+  const reader = body.getReader();
   let pending = "";
 
   return new ReadableStream<Uint8Array>({
@@ -172,9 +221,23 @@ export function toTextStream(res: Response): ReadableStream<Uint8Array> {
           for (const data of parseSseLines(chunk)) {
             if (!data || data === "[DONE]") continue;
             try {
-              out += deltaFrom(JSON.parse(data) as StreamEvent);
+              const event = JSON.parse(data) as StreamEvent;
+              if (event.error?.message) throw new GatewayError(502, event.error.message);
+              const blocked =
+                event.promptFeedback?.blockReasonMessage ?? event.promptFeedback?.blockReason;
+              if (blocked) throw new GatewayError(422, blocked);
+              out += deltaFrom(event);
             } catch {
-              /* ignore keep-alives */
+              // Ignore malformed keep-alives, but preserve provider failures carried in the stream.
+              try {
+                const event = JSON.parse(data) as StreamEvent;
+                if (event.error?.message) throw new GatewayError(502, event.error.message);
+                const blocked =
+                  event.promptFeedback?.blockReasonMessage ?? event.promptFeedback?.blockReason;
+                if (blocked) throw new GatewayError(422, blocked);
+              } catch (error) {
+                if (error instanceof GatewayError) throw error;
+              }
             }
           }
         }
