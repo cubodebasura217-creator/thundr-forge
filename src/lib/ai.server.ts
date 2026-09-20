@@ -11,7 +11,7 @@ export type GwRole = "user" | "assistant";
 export type GwMessage = { role: GwRole; content: string };
 
 /** Which service (and key) a request should run on. */
-export type AiConfig = { provider: "lovable" | "gemini" | "openrouter"; apiKey: string };
+export type AiConfig = { provider: "lovable" | "gemini" | "openrouter"; apiKey: string; model: string };
 
 function lovableKey() {
   const key = process.env["LOVABLE_API_KEY"];
@@ -19,7 +19,7 @@ function lovableKey() {
   return key;
 }
 
-export const LOVABLE_CONFIG: AiConfig = { provider: "lovable", apiKey: "" };
+export const LOVABLE_CONFIG: AiConfig = { provider: "lovable", apiKey: "", model: "" };
 
 export class GatewayError extends Error {
   status: number;
@@ -35,10 +35,12 @@ function endpointFor(config: AiConfig): {
   headers: Record<string, string>;
 } {
   if (config.provider === "gemini" && config.apiKey) {
+    // Google's OpenAI-compatibility endpoint accepts bare model ids like "gemini-1.5-flash".
+    // gemini-2.5-flash is NOT on Google's free tier, so default to the free-tier gemini-1.5-flash.
+    const model = config.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash";
     return {
-      // Google's OpenAI-compatibility endpoint accepts bare model ids like "gemini-2.5-flash".
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      model: "gemini-2.5-flash",
+      model,
       headers: { Authorization: `Bearer ${config.apiKey}` },
     };
   }
