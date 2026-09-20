@@ -21,6 +21,7 @@ export function ApiKeyCard() {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState("lovable");
   const [key, setKey] = useState("");
+  const [model, setModel] = useState("gemini-1.5-flash");
   const [loaded, setLoaded] = useState(false);
 
   const stored = useQuery({
@@ -29,10 +30,10 @@ export function ApiKeyCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_ai_keys")
-        .select("provider, api_key")
+        .select("provider, api_key, model")
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return data ?? { provider: "lovable", api_key: "" };
+      return data ?? { provider: "lovable", api_key: "", model: "" };
     },
   });
 
@@ -40,6 +41,7 @@ export function ApiKeyCard() {
     if (!stored.data || loaded) return;
     setProvider(stored.data.provider || "lovable");
     setKey(stored.data.api_key || "");
+    setModel(stored.data.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash");
     setLoaded(true);
   }, [stored.data, loaded]);
 
@@ -51,6 +53,7 @@ export function ApiKeyCard() {
         user_id: user.id,
         provider: trimmed ? provider : "lovable",
         api_key: trimmed && provider !== "lovable" ? trimmed : "",
+        model: provider === "gemini" ? model : "",
       });
       if (error) throw new Error(error.message);
     },
@@ -87,6 +90,23 @@ export function ApiKeyCard() {
 
       {provider !== "lovable" && (
         <div className="space-y-2">
+          {provider === "gemini" && (
+            <div className="space-y-2">
+              <Label htmlFor="gemini-model">Gemini model</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger id="gemini-model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (default)</SelectItem>
+                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Both are on Google's free tier. 1.5 Flash is the default.
+              </p>
+            </div>
+          )}
           <Label htmlFor="own-key">API key</Label>
           <Input
             id="own-key"
@@ -98,7 +118,7 @@ export function ApiKeyCard() {
           />
           <p className="text-xs text-muted-foreground">
             {provider === "gemini"
-              ? "Get a key at aistudio.google.com — it runs your chats on Gemini 2.5 Flash."
+              ? `Get a key at aistudio.google.com — it runs your chats on ${model === "gemini-2.0-flash" ? "Gemini 2.0 Flash" : "Gemini 1.5 Flash"} (free tier).`
               : "Get a key at openrouter.ai — it runs your chats on Gemini 2.5 Flash via OpenRouter."}
           </p>
         </div>

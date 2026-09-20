@@ -7,12 +7,13 @@ import { LOVABLE_CONFIG, type AiConfig } from "@/lib/ai.server";
 export async function loadAiConfig(supabase: SupabaseClient<Database>): Promise<AiConfig> {
   const { data } = await supabase
     .from("user_ai_keys")
-    .select("provider, api_key")
+    .select("provider, api_key, model")
     .maybeSingle();
 
   const key = (data?.api_key ?? "").trim();
   const provider = data?.provider;
+  const model = data?.model ?? "";
   if (!key) return LOVABLE_CONFIG;
-  if (provider === "gemini" || provider === "openrouter") return { provider, apiKey: key };
+  if (provider === "gemini" || provider === "openrouter") return { provider, apiKey: key, model };
   return LOVABLE_CONFIG;
 }

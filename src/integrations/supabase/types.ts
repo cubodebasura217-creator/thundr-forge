@@ -339,6 +339,7 @@ export type Database = {
         Row: {
           api_key: string
           created_at: string
+          model: string
           provider: string
           updated_at: string
           user_id: string
@@ -346,6 +347,7 @@ export type Database = {
         Insert: {
           api_key?: string
           created_at?: string
+          model?: string
           provider?: string
           updated_at?: string
           user_id: string
@@ -353,6 +355,7 @@ export type Database = {
         Update: {
           api_key?: string
           created_at?: string
+          model?: string
           provider?: string
           updated_at?: string
           user_id?: string
