@@ -21,6 +21,7 @@ export function ApiKeyCard() {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState("lovable");
   const [key, setKey] = useState("");
+  const [model, setModel] = useState("gemini-1.5-flash");
   const [loaded, setLoaded] = useState(false);
 
   const stored = useQuery({
@@ -29,10 +30,10 @@ export function ApiKeyCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_ai_keys")
-        .select("provider, api_key")
+        .select("provider, api_key, model")
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return data ?? { provider: "lovable", api_key: "" };
+      return data ?? { provider: "lovable", api_key: "", model: "" };
     },
   });
 
@@ -40,6 +41,7 @@ export function ApiKeyCard() {
     if (!stored.data || loaded) return;
     setProvider(stored.data.provider || "lovable");
     setKey(stored.data.api_key || "");
+    setModel(stored.data.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash");
     setLoaded(true);
   }, [stored.data, loaded]);
 
