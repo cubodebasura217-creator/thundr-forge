@@ -106,6 +106,7 @@ function ChatPage() {
   const [imageError, setImageError] = useState<string | null>(null);
   const touchStart = useRef<{ id: string; x: number } | null>(null);
   const lastTap = useRef<{ id: string; at: number } | null>(null);
+  const suppressDoubleClickUntil = useRef(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const chatQuery = useQuery({
@@ -543,6 +544,7 @@ function ChatPage() {
                         const now = Date.now();
                         if (lastTap.current?.id === message.id && now - lastTap.current.at < 320) {
                           lastTap.current = null;
+                          suppressDoubleClickUntil.current = now + 500;
                           togglePin.mutate(message);
                         } else {
                           lastTap.current = { id: message.id, at: now };
@@ -560,7 +562,9 @@ function ChatPage() {
                       touchStart.current = null;
                       endSwipe(message, delta, position, variants.length);
                     }}
-                    onDoubleClick={() => togglePin.mutate(message)}
+                    onDoubleClick={() => {
+                      if (Date.now() >= suppressDoubleClickUntil.current) togglePin.mutate(message);
+                    }}
                     className={cn(
                       "touch-pan-y overflow-hidden rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
                       isUser
