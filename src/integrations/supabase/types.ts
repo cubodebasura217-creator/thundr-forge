@@ -58,6 +58,7 @@ export type Database = {
           id: string
           is_public: boolean
           name: string
+          story_goals: string
           system_prompt: string
           tagline: string
           tags: string[]
@@ -75,6 +76,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           name: string
+          story_goals?: string
           system_prompt?: string
           tagline?: string
           tags?: string[]
@@ -92,6 +94,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           name?: string
+          story_goals?: string
           system_prompt?: string
           tagline?: string
           tags?: string[]
