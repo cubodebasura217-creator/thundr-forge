@@ -64,6 +64,7 @@ type CharacterForm = {
   traitsText: string;
   system_prompt: string;
   example_dialogue: string;
+  story_goals: string;
   gender: string;
   tagsText: string;
   avatar_url: string | null;
@@ -79,6 +80,7 @@ const EMPTY: CharacterForm = {
   traitsText: "",
   system_prompt: "",
   example_dialogue: "",
+  story_goals: "",
   gender: "",
   tagsText: "",
   avatar_url: null,
@@ -164,6 +166,7 @@ function CharactersPage() {
         traits: values.id ? traits : [],
         system_prompt: values.id ? values.system_prompt : "",
         example_dialogue: values.id ? values.example_dialogue : "",
+        story_goals: values.story_goals,
         gender: values.gender,
         tags: values.tagsText
           .split(",")
@@ -280,6 +283,7 @@ function CharactersPage() {
       traitsText: character.traits.join(", "),
       system_prompt: character.system_prompt,
       example_dialogue: character.example_dialogue,
+      story_goals: character.story_goals,
       gender: character.gender ?? "",
       tagsText: (character.tags ?? []).join(", "),
       avatar_url: character.avatar_url,
@@ -474,6 +478,16 @@ function CharactersPage() {
                 rows={3}
                 value={form.greeting}
                 onChange={(e) => setForm({ ...form, greeting: e.target.value })}
+              />
+            </Field>
+
+            <Field label="Story Arc / Objectives (optional)" id="c-goals">
+              <Textarea
+                id="c-goals"
+                rows={4}
+                value={form.story_goals}
+                onChange={(e) => setForm({ ...form, story_goals: e.target.value })}
+                placeholder="Find the lost crown; earn the user's trust; confront the traitor."
               />
             </Field>
 

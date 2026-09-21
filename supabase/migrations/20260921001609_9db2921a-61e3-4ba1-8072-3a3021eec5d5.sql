@@ -1,0 +1,2 @@
+ALTER TABLE public.characters
+ADD COLUMN IF NOT EXISTS story_goals TEXT NOT NULL DEFAULT '';

@@ -1,10 +1,10 @@
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 /** Fast, low-cost chat model used for every roleplay turn. */
 const CHAT_MODEL = "google/gemini-3.1-flash-lite";
-const IMAGE_MODEL = "lovable/image-standard";
+const IMAGE_MODEL = "openai/gpt-image-2.5-sunburst";
 
 /** Keeps replies punchy and cheap. */
-export const REPLY_MAX_TOKENS = 350;
+export const REPLY_MAX_TOKENS = 220;
 const UTILITY_MAX_TOKENS = 700;
 
 export type GwRole = "user" | "assistant";
@@ -281,6 +281,8 @@ export async function generateImageBase64(prompt: string): Promise<string> {
       "Lovable-API-Key": lovableKey(),
       "X-Lovable-AIG-SDK": "fetch",
     },
+    // Image endpoints do not accept chat token-limit fields. Keep this payload image-only so
+    // provider defaults can finish the render without truncation or formatting conflicts.
     body: JSON.stringify({ model: IMAGE_MODEL, prompt, n: 1 }),
   });
 

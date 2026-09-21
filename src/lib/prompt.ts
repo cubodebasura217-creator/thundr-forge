@@ -20,9 +20,9 @@ export function parseSettings(raw: unknown): ChatSettings {
 }
 
 const LENGTH_HINT: Record<ChatSettings["responseLength"], string> = {
-  short: "Keep replies tight: 1-2 short paragraphs.",
-  medium: "Write 2-3 paragraphs per reply.",
-  long: "Write rich, detailed replies of 4+ paragraphs.",
+  short: "Reply in 1 compact paragraph, usually 40-70 words.",
+  medium: "Reply in 1-2 short paragraphs, usually 70-120 words.",
+  long: "Reply in at most 3 short paragraphs, usually 120-180 words.",
 };
 
 const NARRATION_HINT: Record<ChatSettings["narration"], string> = {
@@ -40,6 +40,7 @@ export type PromptContext = {
     traits: string[];
     system_prompt: string;
     example_dialogue: string;
+    story_goals: string;
   };
   persona?: {
     name: string;
@@ -62,6 +63,12 @@ export function buildInstructions(ctx: PromptContext): string {
   parts.push(
     `You are running an open-ended collaborative roleplay. You play ${c.name} and every other character in the scene except the user's persona. Never break character, never mention being an AI, never add disclaimers or meta commentary, and never end the scene on the user's behalf. Always leave room for the user to act next.`,
   );
+
+  if (c.story_goals) {
+    parts.push(
+      `# Story arc / objectives\n${c.story_goals}\nAdvance these objectives naturally without rushing them. Treat completed milestones in the story summary as settled and focus on the next incomplete step.`,
+    );
+  }
 
   parts.push(
     `# Roleplay formatting\nUse *italics* for actions and narration. Use **bold** for internal thoughts. Put spoken dialogue in double quotes. Apply this consistently without explaining the formatting.`,
@@ -109,7 +116,7 @@ export function buildInstructions(ctx: PromptContext): string {
 
   const s = ctx.settings;
   parts.push(
-    `# Style\n${LENGTH_HINT[s.responseLength]}\n${NARRATION_HINT[s.narration]}\nCreative intensity: ${s.wildness}/10 — ${
+    `# Style\n${LENGTH_HINT[s.responseLength]}\nBe punchy. Prefer one decisive action, one vivid detail, and concise dialogue. Do not recap the scene, repeat the user's words, or pad the reply with multiple developments.\n${NARRATION_HINT[s.narration]}\nCreative intensity: ${s.wildness}/10 — ${
       s.wildness >= 8
         ? "take bold risks, introduce twists and surprises"
         : s.wildness >= 5
@@ -140,4 +147,5 @@ export const SUMMARY_INSTRUCTIONS = `You are a story archivist for a roleplay. M
 Rules:
 - Write terse bullet points, newest events last.
 - Track: who is present, relationships and how they changed, promises, injuries, locations, unresolved threads, and key objects.
-- Keep it under 300 words. Output only the bullet list, no preamble.`;
+- Include a "Story arc progress" section when objectives are provided. Copy each milestone as a short checkbox: [x] only when the transcript clearly proves completion, otherwise [ ]. Preserve prior completed marks unless later events explicitly reverse them.
+- Keep it under 220 words. Output only the bullet list, no preamble.`;
