@@ -20,7 +20,7 @@ export const summarizeChat = createServerFn({ method: "POST" })
 
     const { data: chat } = await supabase
       .from("chats")
-      .select("id, summary, summarized_count")
+      .select("id, summary, summarized_count, characters(story_goals)")
       .eq("id", data.chatId)
       .maybeSingle();
     if (!chat) throw new Error("Chat not found");
@@ -49,10 +49,10 @@ export const summarizeChat = createServerFn({ method: "POST" })
         messages: [
           {
             role: "user",
-            content: `Previous summary:\n${chat.summary || "(none yet)"}\n\nNew messages to fold in:\n${transcript}`,
+            content: `Story arc / objectives:\n${chat.characters?.story_goals || "(none)"}\n\nPrevious summary:\n${chat.summary || "(none yet)"}\n\nNew messages to fold in:\n${transcript}`,
           },
         ],
-        maxTokens: 700,
+        maxTokens: 420,
         config: await loadAiConfig(supabase),
       });
 

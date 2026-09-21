@@ -18,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
 import { ApiKeyCard } from "@/components/ApiKeyCard";
@@ -104,6 +105,7 @@ function ChatPage() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const touchStart = useRef<{ id: string; x: number } | null>(null);
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const chatQuery = useQuery({
@@ -530,10 +532,22 @@ function ChatPage() {
                   <div
                     onTouchStart={(event) => { touchStart.current = { id: message.id, x: event.touches[0]?.clientX ?? 0 }; }}
                     onTouchEnd={(event) => {
-                      if (isUser || touchStart.current?.id !== message.id) return;
+                      if (touchStart.current?.id !== message.id) return;
                       const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStart.current.x;
                       touchStart.current = null;
-                      endSwipe(message, delta, position, variants.length);
+                      if (!isUser && Math.abs(delta) > 12) {
+                        endSwipe(message, delta, position, variants.length);
+                        return;
+                      }
+                      if (Math.abs(delta) <= 12) {
+                        const now = Date.now();
+                        if (lastTap.current?.id === message.id && now - lastTap.current.at < 320) {
+                          lastTap.current = null;
+                          togglePin.mutate(message);
+                        } else {
+                          lastTap.current = { id: message.id, at: now };
+                        }
+                      }
                     }}
                     onPointerDown={(event) => {
                       if (event.pointerType === "touch") return;
@@ -546,10 +560,11 @@ function ChatPage() {
                       touchStart.current = null;
                       endSwipe(message, delta, position, variants.length);
                     }}
+                    onDoubleClick={() => togglePin.mutate(message)}
                     className={cn(
-                      "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
+                      "touch-pan-y overflow-hidden rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
                       isUser
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        ? "rounded-br-sm bg-bubble-user/80 text-bubble-user-foreground"
                         : "border border-primary/25 bg-card/80 rounded-bl-sm glow-ring",
                     )}
                   >
@@ -576,7 +591,17 @@ function ChatPage() {
                         </div>
                       </div>
                     ) : (
-                      <RoleplayText>{message.content}</RoleplayText>
+                      <AnimatePresence initial={false} mode="wait">
+                        <motion.div
+                          key={`${message.id}-${message.active_variant}-${message.content}`}
+                          initial={{ x: 28, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          exit={{ x: -28, opacity: 0 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                        >
+                          <RoleplayText>{message.content}</RoleplayText>
+                        </motion.div>
+                      </AnimatePresence>
                     )}
                   </div>
                 </div>

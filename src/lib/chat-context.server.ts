@@ -69,6 +69,7 @@ export async function loadTurnContext(
       traits: character.traits ?? [],
       system_prompt: character.system_prompt,
       example_dialogue: character.example_dialogue,
+      story_goals: character.story_goals,
     },
     persona: personaRes.data
       ? {
