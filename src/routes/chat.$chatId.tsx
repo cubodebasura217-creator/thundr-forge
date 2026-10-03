@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -56,6 +57,8 @@ import { DEFAULT_SETTINGS, parseSettings, type ChatSettings } from "@/lib/prompt
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/chat/$chatId")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Roleplay chat — Thundr" },

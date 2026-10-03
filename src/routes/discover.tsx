@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MessagesSquare, Sparkles, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -24,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { GENDER_OPTIONS, TROPE_OPTIONS } from "@/routes/characters";
 
 export const Route = createFileRoute("/discover")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Discover companions — Thundr" },

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe2, Lock, MessagesSquare, Plus, Sparkle, Trash2, Wand2 } from "lucide-react";
 import { useState } from "react";
@@ -35,6 +36,8 @@ import { startChat } from "@/lib/start-chat";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/characters")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Character builder — Thundr" },
