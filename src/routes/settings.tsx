@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 
 import { ApiKeyCard } from "@/components/ApiKeyCard";
 import { AppShell, PageHeader } from "@/components/AppShell";
 
 export const Route = createFileRoute("/settings")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Settings · Thundr" },

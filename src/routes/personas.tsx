@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
@@ -24,6 +25,8 @@ import { useSignedUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/personas")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Your personas — Thundr" },

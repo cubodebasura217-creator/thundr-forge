@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { requireSession } from "@/lib/require-session";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessagesSquare, Plus, Sparkle, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -18,6 +19,8 @@ import { useSignedUrl } from "@/lib/media";
 import { startChat } from "@/lib/start-chat";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
       { title: "Your chats — Thundr AI roleplay" },
