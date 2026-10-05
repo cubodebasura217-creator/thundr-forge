@@ -106,6 +106,7 @@ function ChatPage() {
   const [replyError, setReplyError] = useState<string | null>(null);
   const [summaryDraft, setSummaryDraft] = useState("");
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const lastSummaryAttempt = useRef(0);
   const [imageError, setImageError] = useState<string | null>(null);
   const touchStart = useRef<{ id: string; x: number } | null>(null);
   const lastTap = useRef<{ id: string; at: number } | null>(null);
@@ -211,6 +212,9 @@ function ChatPage() {
     if (!settings.autoSummary) return;
     const folded = chat?.summarized_count ?? 0;
     if (total - folded < 20) return;
+    // Don't retry a failed summary on every message — that multiplies requests.
+    if (Date.now() - lastSummaryAttempt.current < 5 * 60_000) return;
+    lastSummaryAttempt.current = Date.now();
     try {
       await summarizeChat({ data: { chatId } });
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
