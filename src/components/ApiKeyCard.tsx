@@ -41,7 +41,7 @@ export function ApiKeyCard() {
     if (!stored.data || loaded) return;
     setProvider(stored.data.provider || "lovable");
     setKey(stored.data.api_key || "");
-    setModel(stored.data.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash");
+    setModel(stored.data.model === "gemini-2.5-flash" ? "gemini-2.5-flash" : "gemini-3.0-flash");
     setLoaded(true);
   }, [stored.data, loaded]);
 
@@ -98,8 +98,8 @@ export function ApiKeyCard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (default)</SelectItem>
-                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                  <SelectItem value="gemini-3.0-flash">Gemini 3.0 Flash (default)</SelectItem>
+                  <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
