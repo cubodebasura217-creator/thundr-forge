@@ -21,7 +21,7 @@ export function ApiKeyCard() {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState("lovable");
   const [key, setKey] = useState("");
-  const [model, setModel] = useState("gemini-1.5-flash");
+  const [model, setModel] = useState("gemini-3.0-flash");
   const [loaded, setLoaded] = useState(false);
 
   const stored = useQuery({
@@ -41,7 +41,7 @@ export function ApiKeyCard() {
     if (!stored.data || loaded) return;
     setProvider(stored.data.provider || "lovable");
     setKey(stored.data.api_key || "");
-    setModel(stored.data.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash");
+    setModel(stored.data.model === "gemini-2.5-flash" ? "gemini-2.5-flash" : "gemini-3.0-flash");
     setLoaded(true);
   }, [stored.data, loaded]);
 
@@ -98,12 +98,12 @@ export function ApiKeyCard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (default)</SelectItem>
-                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                  <SelectItem value="gemini-3.0-flash">Gemini 3.0 Flash (default)</SelectItem>
+                  <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Both are on Google's free tier. 1.5 Flash is the default.
+                3.0 Flash is the default; 2.5 Flash is the fallback.
               </p>
             </div>
           )}
@@ -118,7 +118,7 @@ export function ApiKeyCard() {
           />
           <p className="text-xs text-muted-foreground">
             {provider === "gemini"
-              ? `Get a key at aistudio.google.com — it runs your chats on ${model === "gemini-2.0-flash" ? "Gemini 2.0 Flash" : "Gemini 1.5 Flash"} (free tier).`
+              ? `Get a key at aistudio.google.com — it runs your chats on ${model === "gemini-2.5-flash" ? "Gemini 2.5 Flash" : "Gemini 3.0 Flash"}.`
               : "Get a key at openrouter.ai — it runs your chats on Gemini 2.5 Flash via OpenRouter."}
           </p>
         </div>
