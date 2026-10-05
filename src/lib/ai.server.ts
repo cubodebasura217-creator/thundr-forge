@@ -104,18 +104,25 @@ export async function openChatStream(opts: {
   const { url, model, headers, protocol } = endpointFor(config);
   const maxTokens = opts.maxTokens ?? REPLY_MAX_TOKENS;
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    ...(opts.signal ? { signal: opts.signal } : {}),
-    body: JSON.stringify(requestBody(protocol, model, opts.instructions, opts.messages, maxTokens)),
-  });
-
-  if (!res.ok) {
+  const payload = JSON.stringify(requestBody(protocol, model, opts.instructions, opts.messages, maxTokens));
+  // Free-tier keys hit per-minute limits; wait and retry quietly instead of failing.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      ...(opts.signal ? { signal: opts.signal } : {}),
+      body: payload,
+    });
+    if (res.ok) return res;
     const body = await res.text().catch(() => "");
+    if (res.status === 429 && attempt < 2) {
+      const hinted = Number(/"retryDelay":\s*"(\d+)/.exec(body)?.[1] ?? res.headers.get("retry-after") ?? 0);
+      const waitMs = Math.min(Math.max(hinted * 1000, 4000 * (attempt + 1)), 20000);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
     throw new GatewayError(res.status, gatewayMessage(res.status, body, { provider, model }));
   }
-  return res;
 }
 
 function providerLabel(provider: AiConfig["provider"]): string {
