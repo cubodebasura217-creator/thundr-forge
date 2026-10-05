@@ -103,7 +103,7 @@ export function ApiKeyCard() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Both are on Google's free tier. 1.5 Flash is the default.
+                3.0 Flash is the default; 2.5 Flash is the fallback.
               </p>
             </div>
           )}
@@ -118,7 +118,7 @@ export function ApiKeyCard() {
           />
           <p className="text-xs text-muted-foreground">
             {provider === "gemini"
-              ? `Get a key at aistudio.google.com — it runs your chats on ${model === "gemini-2.0-flash" ? "Gemini 2.0 Flash" : "Gemini 1.5 Flash"} (free tier).`
+              ? `Get a key at aistudio.google.com — it runs your chats on ${model === "gemini-2.5-flash" ? "Gemini 2.5 Flash" : "Gemini 3.0 Flash"}.`
               : "Get a key at openrouter.ai — it runs your chats on Gemini 2.5 Flash via OpenRouter."}
           </p>
         </div>
