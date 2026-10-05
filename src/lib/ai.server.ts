@@ -36,7 +36,7 @@ function endpointFor(config: AiConfig): {
   protocol: "chat-completions" | "gemini-native";
 } {
   if (config.provider === "gemini" && config.apiKey) {
-    const model = config.model === "gemini-2.0-flash" ? "gemini-2.0-flash" : "gemini-1.5-flash";
+    const model = config.model === "gemini-2.5-flash" ? "gemini-2.5-flash" : "gemini-3.0-flash";
     return {
       // AI Studio keys are most reliable on Google's native endpoint. The query parameter
       // supports standard AI Studio keys whose projects reject OpenAI-compatible Bearer auth.

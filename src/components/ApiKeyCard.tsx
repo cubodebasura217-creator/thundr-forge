@@ -21,7 +21,7 @@ export function ApiKeyCard() {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState("lovable");
   const [key, setKey] = useState("");
-  const [model, setModel] = useState("gemini-1.5-flash");
+  const [model, setModel] = useState("gemini-3.0-flash");
   const [loaded, setLoaded] = useState(false);
 
   const stored = useQuery({
